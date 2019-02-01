@@ -1,0 +1,14 @@
+{
+  "root": true,
+  "parserOptions": {
+    "ecmaVersion": 2018
+  },
+  "plugins": ["prettier"],
+  "rules": {
+    "semi": 2,
+    "prettier/prettier": "warn"
+  },
+  "env": {
+    "browser": true
+  }
+}
