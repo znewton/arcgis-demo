@@ -4,6 +4,7 @@
   "description": "ArcGIS Demo App for Esri Interview",
   "main": "index.html",
   "scripts": {
+    "serve": "./scripts/serve",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
