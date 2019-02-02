@@ -1,15 +1,30 @@
-require(['esri/Map', 'esri/views/MapView', 'dojo/domReady!'], function(
-  Map,
-  MapView
-) {
+require([
+  'esri/Map',
+  'esri/views/SceneView',
+  'esri/layers/TileLayer',
+  'dojo/domReady!',
+], function(Map, MapView, TileLayer) {
+  var transportationLayer = new TileLayer({
+    url:
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer',
+    id: 'streets',
+    opacity: 0.7,
+  });
+
   var map = new Map({
-    basemap: 'topo-vector',
+    basemap: 'gray-vector',
   });
 
   var view = new MapView({
     container: 'root',
     map: map,
-    center: [-118.71511, 34.09042],
-    zoom: 11,
+    camera: {
+      tilt: 0,
+      position: {
+        x: -93.204087,
+        y: 44.935271,
+        z: 2500,
+      },
+    },
   });
 });
