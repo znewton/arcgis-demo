@@ -1,47 +1,77 @@
-const debounce = (callback, wait) => {
-  let timeout;
-  return function() {
-    clearTimeout(timeout);
-    timeout = setTimeout(callback, wait);
-  };
+const geodbUrl =
+  'http://geodb-free-service.wirefreethought.com/v1/geo/cities?hateoasMode=off';
+
+const ajax = (type, url) =>
+  new Promise((res, rej) => {
+    let xhr = new XMLHttpRequest();
+    xhr.open(type, url, true);
+    xhr.onreadystatechange = function() {
+      if (xhr.readyState != 4) {
+        return;
+      }
+      if (xhr.status != 200) {
+        rej(xhr);
+        return;
+      }
+      res(xhr.response);
+    };
+    xhr.send();
+  });
+
+const clickedPoint = (goalPoint, clickPoint, tolerance) => {
+  const latCheck =
+    Math.abs(goalPoint.latitude - clickPoint.latitude) < tolerance;
+  const longCheck =
+    Math.abs(goalPoint.longitude - clickPoint.longitude) < tolerance;
+  return latCheck && longCheck;
+};
+
+const getCityCount = async () => {
+  try {
+    const response = await ajax('GET', geodbUrl);
+    return JSON.parse(response).metadata.totalCount;
+  } catch (e) {
+    console.error(e);
+  }
+};
+
+const getRandomCity = async numCities => {
+  const randOffset = Math.floor(Math.random() * numCities);
+  try {
+    const response = await ajax(
+      'GET',
+      `${geodbUrl}&limit=1&offset=${randOffset}`
+    );
+    return JSON.parse(response).data[0];
+  } catch (e) {
+    console.error(e);
+  }
 };
 
 require([
   'esri/Map',
   'esri/views/SceneView',
-  'esri/layers/FeatureLayer',
   'esri/widgets/Locate',
+  'esri/geometry/Mesh',
+  'esri/geometry/Point',
+  'esri/Graphic',
   'dojo/domReady!',
-], function(Map, SceneView, FeatureLayer, Locate) {
-  const autoTheftDensityUrl =
-    'https://services3.arcgis.com/GVgbJbqm8hXASVYi/ArcGIS/rest/services/Auto%20Theft%20Density/FeatureServer';
-  const bikeParkingUrl =
-    'https://services3.arcgis.com/GVgbJbqm8hXASVYi/ArcGIS/rest/services/Bike%20Parking/FeatureServer';
-  const crashDataUrl =
-    'https://services3.arcgis.com/GVgbJbqm8hXASVYi/ArcGIS/rest/services/crash_data/FeatureServer';
-  const trailheadDataUrl =
-    'https://services3.arcgis.com/GVgbJbqm8hXASVYi/arcgis/rest/services/Trailheads/FeatureServer';
-  var featureLayer = new FeatureLayer({
-    url: trailheadDataUrl,
-  });
-
+], function(Map, SceneView, Locate, Mesh, Point, Graphic) {
   var map = new Map({
-    basemap: 'streets-navigation-vector',
+    basemap: 'gray-vector',
   });
-
-  map.add(featureLayer);
 
   var view = new SceneView({
     container: 'root',
     map: map,
   });
 
-  let longitude = -118.71511;
-  let latitude = 34.09042;
+  view.when(async function() {
+    const numCities = await getCityCount();
+    const randomCity = await getRandomCity(numCities);
 
-  view.when(function() {
     view.goTo({
-      center: [longitude, latitude],
+      center: [randomCity.longitude, randomCity.latitude],
       zoom: 10,
       tilt: 70,
     });
@@ -58,45 +88,55 @@ require([
 
   view.ui.add(locate, 'top-left');
 
-  const latSlider = document.getElementById('lat-slide');
-  latSlider.value = latitude;
-  const latVal = document.getElementById('lat-val');
-  const displayLat = lat =>
-    (latVal.innerHTML = `${Number(lat).toFixed(4)}&deg;`);
+  let currentGoal = {};
 
-  const longSlider = document.getElementById('long-slide');
-  longSlider.value = longitude;
-  const longVal = document.getElementById('long-val');
-  const displayLong = long =>
-    (longVal.innerHTML = `${Number(long).toFixed(4)}&deg;`);
+  const relocateGoal = async () => {
+    const numCities = await getCityCount();
+    const randomCity = await getRandomCity(numCities);
+    console.log(randomCity);
+    const { city, country, latitude, longitude } = randomCity;
 
-  displayLat(latitude);
-  displayLong(longitude);
+    view.goTo([longitude, latitude]);
 
-  const longLatUpdate = debounce(() => {
-    console.log('view update');
-    view.when(function() {
-      view.goTo({
-        center: [longitude, latitude],
-        zoom: 10,
-        tilt: 70,
-      });
+    const box = Mesh.createBox(new Point({ longitude, latitude }), {
+      size: {
+        width: 1000,
+        height: 5000,
+        depth: 1000,
+      },
+      material: {
+        color: 'red',
+      },
     });
-  }, 300);
+    const graphic = new Graphic({
+      geometry: box,
+      symbol: {
+        type: 'mesh-3d',
+        symbolLayers: [{ type: 'fill' }],
+      },
+    });
+    view.graphics.add(graphic);
 
-  const handleLatChange = e => {
-    const value = e.target.value;
-    displayLat(value);
-    latitude = value;
-    longLatUpdate();
-  };
-  const handleLongChange = e => {
-    const value = e.target.value;
-    displayLong(value);
-    longitude = value;
-    longLatUpdate();
+    currentGoal = {
+      longitude,
+      latitude,
+      graphic,
+    };
   };
 
-  latSlider.addEventListener('input', handleLatChange);
-  longSlider.addEventListener('input', handleLongChange);
+  const startButton = document.getElementById('start');
+  startButton.addEventListener('click', () => {
+    relocateGoal();
+    score = 0;
+    displayScore();
+    document.body.removeChild(startButton);
+  });
+
+  view.on('click', e => {
+    if (currentGoal == {}) return;
+    if (clickedPoint(currentGoal, e.mapPoint, 0.2)) {
+      view.graphics.remove(currentGoal.graphic);
+      relocateGoal();
+    }
+  });
 });
