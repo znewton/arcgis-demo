@@ -48,6 +48,11 @@ const getRandomCity = async numCities => {
   }
 };
 
+const displayScore = score => {
+  const scoreElement = document.getElementById('score');
+  scoreElement.innerText = `${score}`;
+};
+
 require([
   'esri/Map',
   'esri/views/SceneView',
@@ -66,9 +71,18 @@ require([
     map: map,
   });
 
+  const startButton = document.getElementById('start');
+  startButton.addEventListener('click', () => {
+    relocateGoal();
+    score = 0;
+    displayScore(score);
+    startButton.style.display = 'none';
+  });
+
   view.when(async function() {
     const numCities = await getCityCount();
     const randomCity = await getRandomCity(numCities);
+    startButton.style.display = 'block';
 
     view.goTo({
       center: [randomCity.longitude, randomCity.latitude],
@@ -89,20 +103,36 @@ require([
   view.ui.add(locate, 'top-left');
 
   let currentGoal = {};
+  let score;
 
   const relocateGoal = async () => {
     const numCities = await getCityCount();
     const randomCity = await getRandomCity(numCities);
     console.log(randomCity);
-    const { city, country, latitude, longitude } = randomCity;
+    const { city, country, region, latitude, longitude } = randomCity;
 
-    view.goTo([longitude, latitude]);
+    // view.goTo([longitude, latitude]);
+
+    const locationString = `${city}, ${region}, ${country}`;
+    const goalElement = document.getElementById('goal');
+    goalElement.innerText = locationString;
+    const hintElement = document.getElementById('hint');
+    hintElement.innerText = locationString;
+    const hintStyles = hintElement.style;
+    hintStyles.opacity = 1;
+    hintStyles.display = 'block';
+    const fade = () => {
+      (hintStyles.opacity -= 0.1) <= 0
+        ? (hintStyles.display = 'none')
+        : setTimeout(fade, 200);
+    };
+    fade();
 
     const box = Mesh.createBox(new Point({ longitude, latitude }), {
       size: {
-        width: 1000,
-        height: 5000,
-        depth: 1000,
+        width: 2000,
+        height: 20000,
+        depth: 2000,
       },
       material: {
         color: 'red',
@@ -124,19 +154,13 @@ require([
     };
   };
 
-  const startButton = document.getElementById('start');
-  startButton.addEventListener('click', () => {
-    relocateGoal();
-    score = 0;
-    displayScore();
-    document.body.removeChild(startButton);
-  });
-
   view.on('click', e => {
     if (currentGoal == {}) return;
     if (clickedPoint(currentGoal, e.mapPoint, 0.2)) {
       view.graphics.remove(currentGoal.graphic);
       relocateGoal();
+      score++;
+      displayScore(score);
     }
   });
 });
