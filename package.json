@@ -24,6 +24,7 @@
   },
   "homepage": "https://github.com/znewton/arcgis-demo#readme",
   "devDependencies": {
+    "browser-sync": "^2.26.3",
     "eslint-plugin-prettier": "^3.0.1",
     "prettier": "^1.16.3"
   }
